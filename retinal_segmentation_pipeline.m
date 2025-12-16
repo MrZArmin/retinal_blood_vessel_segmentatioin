@@ -91,13 +91,13 @@ function V = FrangiFilter2D(I, sigma)
     [x,y] = meshgrid(-siz:siz, -siz:siz);
     
     % Gaussian
-    G = exp(-(x.^2 + y.^2)/(2*sigma^2));
+    G = exp(-(x.^2 + y.^2)/(2*sigma^2)); % gaussian smoothing
     G = G / sum(G(:));
     
     % Derivatives
-    Gxx = (x.^2 - sigma^2) ./ (sigma^4) .* G;
-    Gyy = (y.^2 - sigma^2) ./ (sigma^4) .* G;
-    Gxy = (x.*y) ./ (sigma^4) .* G;
+    Gxx = (x.^2 - sigma^2) ./ (sigma^4) .* G; % left to right
+    Gyy = (y.^2 - sigma^2) ./ (sigma^4) .* G; % top to bottom
+    Gxy = (x.*y) ./ (sigma^4) .* G;          % diagonal
     
     Dxx = imfilter(I, Gxx, 'replicate');
     Dyy = imfilter(I, Gyy, 'replicate');
@@ -105,8 +105,8 @@ function V = FrangiFilter2D(I, sigma)
     
     % Eigenvalues
     tmp = sqrt((Dxx - Dyy).^2 + 4*Dxy.^2);
-    lambda1 = (Dxx + Dyy + tmp) / 2;
-    lambda2 = (Dxx + Dyy - tmp) / 2;
+    lambda1 = (Dxx + Dyy + tmp) / 2; % along the vessel (should be small)
+    lambda2 = (Dxx + Dyy - tmp) / 2; % across the vessel (should be large negative)
     
     % Sort by magnitude
     mu1 = lambda1; mu2 = lambda2;
@@ -118,9 +118,12 @@ function V = FrangiFilter2D(I, sigma)
     beta = 0.5;
     c = 15;
     
+    % S is the norm of the Hessian, if low means no structure
+    % Rb measures the cone vs tube-likeness
     Rb = (lambda1 ./ (lambda2 + eps)).^2;
     S = lambda1.^2 + lambda2.^2;
     
+    % scale from 0 to 1 based on how vessel-like the pixel is
     V = exp(-Rb / (2*beta^2)) .* (1 - exp(-S / (2*c^2)));
     V(lambda2 > 0) = 0;
     V = (V - min(V(:))) / (max(V(:)) - min(V(:)));
